@@ -2,6 +2,8 @@
 let ctx = null;
 let windGain = null;
 let windFilter = null;
+let waterGain = null;
+let waterFilter = null;
 
 export function initAudio() {
   if (ctx) { if (ctx.state === 'suspended') ctx.resume(); return; }
@@ -27,6 +29,74 @@ export function initAudio() {
 
   src.connect(windFilter).connect(windGain).connect(ctx.destination);
   src.start();
+
+  // 水の流れる音: 同じノイズをローパスに通してごぉーっと
+  const wsrc = ctx.createBufferSource();
+  wsrc.buffer = buf;
+  wsrc.loop = true;
+  waterFilter = ctx.createBiquadFilter();
+  waterFilter.type = 'lowpass';
+  waterFilter.frequency.value = 500;
+  waterGain = ctx.createGain();
+  waterGain.gain.value = 0;
+  wsrc.connect(waterFilter).connect(waterGain).connect(ctx.destination);
+  wsrc.start();
+}
+
+// v01: 0(停止)〜1(最高速)
+export function setWater(v01) {
+  if (!ctx) return;
+  const v = Math.max(0, Math.min(1, v01));
+  waterGain.gain.setTargetAtTime(0.1 + v * 0.4, ctx.currentTime, 0.1);
+  waterFilter.frequency.setTargetAtTime(400 + v * 1000, ctx.currentTime, 0.1);
+}
+
+export function stopWater() {
+  if (!ctx) return;
+  waterGain.gain.setTargetAtTime(0, ctx.currentTime, 0.1);
+}
+
+// 着水の「ザッブーン!」: ノイズの塊+低いドン
+export function zabun() {
+  if (!ctx) return;
+  const t = ctx.currentTime;
+  const len = ctx.sampleRate * 0.8;
+  const buf = ctx.createBuffer(1, len, ctx.sampleRate);
+  const d = buf.getChannelData(0);
+  for (let i = 0; i < len; i++) d[i] = (Math.random() * 2 - 1) * (1 - i / len);
+  const src = ctx.createBufferSource();
+  src.buffer = buf;
+  const f = ctx.createBiquadFilter();
+  f.type = 'lowpass';
+  f.frequency.setValueAtTime(1500, t);
+  f.frequency.exponentialRampToValueAtTime(300, t + 0.7);
+  const g = ctx.createGain();
+  g.gain.setValueAtTime(0.6, t);
+  g.gain.exponentialRampToValueAtTime(0.001, t + 0.8);
+  src.connect(f).connect(g).connect(ctx.destination);
+  src.start(t);
+
+  const osc = ctx.createOscillator();
+  osc.type = 'sine';
+  osc.frequency.setValueAtTime(120, t);
+  osc.frequency.exponentialRampToValueAtTime(50, t + 0.4);
+  const og = ctx.createGain();
+  og.gain.setValueAtTime(0.35, t);
+  og.gain.exponentialRampToValueAtTime(0.001, t + 0.45);
+  osc.connect(og).connect(ctx.destination);
+  osc.start(t);
+  osc.stop(t + 0.5);
+}
+
+// 英語ボイス(明るい高めの声)。使えない環境では何もしない
+export function speakEn(text) {
+  try {
+    const u = new SpeechSynthesisUtterance(text);
+    u.lang = 'en-US';
+    u.rate = 0.9;
+    u.pitch = 1.4;
+    speechSynthesis.speak(u);
+  } catch (e) { /* no-op */ }
 }
 
 // v01: 0(停止)〜1(最高速)

@@ -46,7 +46,16 @@
     animation: pulse 1.2s ease-in-out infinite;
     cursor: pointer;
   }
-  @media (min-width: 600px) { .bigbtn { font-size: 90px; } .logo { font-size: 120px; } }
+  .btnrow { display: flex; gap: 7vw; align-items: center; }
+  .bigbtn.sub {
+    width: 24vw;
+    height: 24vw;
+    max-width: 140px;
+    max-height: 140px;
+    font-size: 10vw;
+    animation-delay: .6s;
+  }
+  @media (min-width: 600px) { .bigbtn { font-size: 90px; } .bigbtn.sub { font-size: 56px; } .logo { font-size: 120px; } }
   @keyframes pulse {
     0%, 100% { transform: scale(1); }
     50% { transform: scale(1.12); }
@@ -74,14 +83,20 @@
   <div id="hud" class="hidden">⭐0</div>
 
   <div id="title" class="overlay">
-    <div class="logo">🎢</div>
-    <button id="startBtn" class="bigbtn">▶️</button>
+    <div class="logo">🎡</div>
+    <div class="btnrow">
+      <button id="coasterBtn" class="bigbtn">🎢</button>
+      <button id="slideBtn" class="bigbtn">🛝</button>
+    </div>
   </div>
 
   <div id="goal" class="overlay hidden">
-    <div class="logo">🎉</div>
+    <div id="goalLogo" class="logo">🎉</div>
     <div id="goalStars"></div>
-    <button id="againBtn" class="bigbtn">🔁</button>
+    <div class="btnrow">
+      <button id="againBtn" class="bigbtn">🔁</button>
+      <button id="homeBtn" class="bigbtn sub">🏠</button>
+    </div>
   </div>
 
   <script type="importmap">
