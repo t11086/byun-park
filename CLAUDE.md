@@ -9,6 +9,13 @@
 - `js/main.js` — Three.jsシーン・コース曲線・カメラ演出・ゲーム状態
 - `js/audio.js` — WebAudio効果音(風切り/カタカタ/⭐ゲット/急降下ひゅ〜/ファンファーレ)
 
+## デプロイ
+
+- リポジトリ: https://github.com/t11086/byun-park
+- 公開URL: **https://t11086.github.io/byun-park/** (GitHub Pages, mainブランチ直配信)
+- 手順: `git add` → `git commit` → `git push` で自動デプロイ(反映まで1〜3分)
+- デプロイ後は `curl "https://t11086.github.io/byun-park/?v=$(date +%s)"` で反映確認(JSを変えたら js/main.js も直接curl)
+
 ## ローカル実行・検証
 
 - `python3 -m http.server 8788`(このディレクトリで)→ http://localhost:8788
@@ -94,4 +101,3 @@
 
 - アプリ名(仮: びゅーんパーク)
 - キャラのデザイン(絵文字ベースか、簡単な3Dプリミティブ組み合わせか)
-- デプロイ先(GitHub Pages想定)
