@@ -20,20 +20,6 @@ scene.add(sun);
 
 const v = (x, y, z) => new THREE.Vector3(x, y, z);
 
-// 絵文字をテクスチャにしたビルボード
-function emojiSprite(emoji, scale = 1.4) {
-  const c = document.createElement('canvas');
-  c.width = c.height = 256;
-  const g = c.getContext('2d');
-  g.font = '200px "Apple Color Emoji", "Noto Color Emoji", sans-serif';
-  g.textAlign = 'center';
-  g.textBaseline = 'middle';
-  g.fillText(emoji, 128, 140);
-  const sp = new THREE.Sprite(new THREE.SpriteMaterial({ map: new THREE.CanvasTexture(c), transparent: true }));
-  sp.scale.set(scale, scale, 1);
-  return sp;
-}
-
 // 曲線の長さ・最高地点を調べる
 function analyze(curve) {
   let uTop = 0, yMax = 0;
@@ -298,7 +284,7 @@ const RIDES = {
     curve: coasterCurve, info: coasterInfo,
     lift: true, liftSpeed: 9.0,          // 頂上まで約11秒。遅いと4歳児が飽きる
     vMin: 5, vMax: 26, fric: 1,
-    camUp: 1.6, starUp: 1.8,
+    camUp: 1.6, starUp: 1.8, lookAhead: 10,
     stars: makeStars(coasterCurve, coasterInfo, coasterInfo.uTop + 0.04, 1.8, 0.9, 12),
     goalEmoji: '🎉',
   },
@@ -307,38 +293,11 @@ const RIDES = {
     lift: false,
     vMin: 2.5, vMax: 16, fric: 0.5,      // 水の摩擦でコースターよりマイルド
     camUp: 0.5, starUp: 0.25,            // チューブ(半径1.1)の中に収める
+    lookAhead: 5,                        // 長いと急カーブで壁越しに外を見てしまう
     stars: makeStars(slideCurve, slideInfo, 0.1, 0.25, 0.5, 10),
     goalEmoji: '💦',
   },
 };
-
-// ===== おともだちキャラ(先頭に乗る)=====
-const ANIMALS = ['🐻', '🐰', '🐼', '🐨', '🦊'];
-let rider = null;
-
-function makeRider(kind) {
-  if (rider) { scene.remove(rider); rider = null; }
-  rider = new THREE.Group();
-  // 視界を塞がないように小さめ(過去に🐻が画面を占領した)
-  const animal = emojiSprite(ANIMALS[Math.floor(Math.random() * ANIMALS.length)], 0.85);
-  if (kind === 'coaster') {
-    const car = new THREE.Mesh(
-      new THREE.BoxGeometry(0.7, 0.4, 1.1),
-      new THREE.MeshLambertMaterial({ color: 0xffb300 })
-    );
-    car.position.y = 0.3;
-    animal.position.y = 0.85;
-    rider.add(car, animal);
-  } else {
-    const ring = emojiSprite('🛟', 0.9);
-    ring.position.y = 0.22;
-    animal.position.y = 0.6;
-    rider.add(ring, animal);
-  }
-  rider.userData.animal = animal;
-  rider.userData.animalBaseY = animal.position.y;
-  scene.add(rider);
-}
 
 // ===== ゲーム状態 =====
 let state = 'title';        // title | ride | splash | goal
@@ -356,6 +315,30 @@ const hud = $('hud');
 
 function updateHud() { hud.textContent = '⭐' + starCount; }
 
+// ⭐コレクション(localStorageに累計を保存)
+const STARS_KEY = 'byunpark.totalStars';
+let totalStars = parseInt(localStorage.getItem(STARS_KEY) || '0', 10) || 0;
+
+function updateTotalStars() {
+  $('totalStars').textContent = '⭐' + totalStars;
+}
+updateTotalStars();
+
+// ゴールの紙吹雪(絵文字がひらひら降る)
+function confetti() {
+  const box = $('confetti');
+  box.textContent = '';
+  const emojis = ['🎉', '⭐', '🎈', '✨'];
+  for (let i = 0; i < 24; i++) {
+    const s = document.createElement('span');
+    s.textContent = emojis[i % emojis.length];
+    s.style.left = Math.random() * 100 + 'vw';
+    s.style.animationDelay = Math.random() * 1.2 + 's';
+    s.style.animationDuration = 2 + Math.random() * 2 + 's';
+    box.appendChild(s);
+  }
+}
+
 function startRide(key) {
   initAudio();
   rideKey = key;
@@ -371,7 +354,6 @@ function startRide(key) {
     s.mesh.scale.setScalar(1);
     s.mesh.position.y = s.baseY;
   });
-  makeRider(key);
   updateHud();
   $('title').classList.add('hidden');
   $('goal').classList.add('hidden');
@@ -388,15 +370,18 @@ function finishRide() {
   sprayPts.visible = false;
   fanfare();
   speakEn('You did it!');
+  totalStars += starCount;
+  localStorage.setItem(STARS_KEY, String(totalStars));
+  updateTotalStars();
   hud.classList.add('hidden');
   $('goalLogo').textContent = RIDES[rideKey].goalEmoji;
   $('goalStars').textContent = starCount > 0 ? '⭐'.repeat(starCount) : '👍';
+  confetti();
   $('goal').classList.remove('hidden');
 }
 
 function goHome() {
   state = 'title';
-  if (rider) { scene.remove(rider); rider = null; }
   $('goal').classList.add('hidden');
   $('title').classList.remove('hidden');
 }
@@ -489,7 +474,7 @@ function update(dt) {
 
   // --- カメラ(臨場感の核) ---
   const p = cfg.curve.getPointAt(u);
-  const ahead = cfg.curve.getPointAt(Math.min(u + 10 / cfg.info.len, 1));
+  const ahead = cfg.curve.getPointAt(Math.min(u + cfg.lookAhead / cfg.info.len, 1));
   const v01 = THREE.MathUtils.clamp((speed - cfg.vMin) / (cfg.vMax - cfg.vMin), 0, 1);
 
   const shake = phase === 'run' ? v01 * 0.12 : 0;
@@ -504,16 +489,6 @@ function update(dt) {
 
   camera.fov = 66 + v01 * 28;
   camera.updateProjectionMatrix();
-
-  // --- おともだちは少し前を走る ---
-  if (rider) {
-    const ru = Math.min(u + 4.2 / cfg.info.len, 0.999);
-    const rp = cfg.curve.getPointAt(ru);
-    rider.position.copy(rp);
-    rider.lookAt(cfg.curve.getPointAt(Math.min(ru + 2 / cfg.info.len, 1)));
-    // スピードが出るとぴょこぴょこはしゃぐ
-    rider.userData.animal.position.y = rider.userData.animalBaseY + v01 * Math.abs(Math.sin(clock.elapsedTime * 8)) * 0.2;
-  }
 
   // --- 音 ---
   if (rideKey === 'slide') {
